@@ -1,4 +1,6 @@
 import asyncio
+import random
+import time
 
 
 class BatchFetcher:
@@ -8,17 +10,11 @@ class BatchFetcher:
     def __init__(self, database):
         self.database = database
 
-    async def async_fetch(self, record_id):
-        # A real database would take time to contact and fetch records from,
-        # so we simulate that time by sleeping in here.
-        await asyncio.sleep(0.1)
-        return self.database.get(record_id)
-
     async def fetch_records(self, record_ids):
-        records = []
-        for record_id in record_ids:
-            record = await self.async_fetch(record_id)
-            records.append(record)
+        records = await asyncio.gather(
+            *[self.database.async_fetch(record_id) for record_id in record_ids]
+        )
+        return records
 
 
 class MockDatabase(object):
@@ -33,12 +29,15 @@ class MockDatabase(object):
 
 
 async def main():
-    records = {
-        "a": {"data": 42},
-    }
+    keys = [f"{i}" for i in range(20)]
+    records = {k: {"data": random.randint(1, 100)} for k in keys}
     db = MockDatabase(records)
     fetcher = BatchFetcher(db)
-    results = await fetcher.fetch_records(["a"])
+
+    start = time.time()
+    results = await fetcher.fetch_records(keys)
+    end = time.time()
+    print('Time taken:', end - start)
     print(results)
 
 asyncio.run(main())
